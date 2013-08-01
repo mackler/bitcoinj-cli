@@ -36,15 +36,23 @@ object Shell extends OptParse {
     consoleReader.get.setHistory(history)
     var line = ""
     var exiting: Boolean = false
-    implicit val timeout = Timeout(5.seconds)
 
     try {
-      Await.result(bitcoins ? AreStarted, timeout.duration)
+      implicit val timeout = Timeout(30.seconds)
+      val promise = bitcoins ? AreStarted
+      Await.result(promise, timeout.duration)
     } catch {
-      case e: Exception => sys.exit(1)
+      case e: java.util.concurrent.TimeoutException ⇒
+        println("System startup too took long; giving up")
+        actorSystem.shutdown()
+	sys.exit(2)
+      case e: Exception =>
+	println(s"startup error $e")
+	sys.exit(1)
     }
 
     println("Welcome to the interactive bitcoinj shell")
+    implicit val timeout = Timeout(5.seconds)
 
     do {
       line = consoleReader.get.readLine(prompt)
@@ -135,12 +143,3 @@ object Shell extends OptParse {
   }
 
 }
-
-
-/*
-class SupervisorStrategy extends akka.actor.SupervisorStrategyConfigurator {
-  def create: akka.actor.AllForOneStrategy = {
-    case _ : ⇒ 
-  }
-}
-*/
