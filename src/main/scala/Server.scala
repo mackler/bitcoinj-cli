@@ -139,13 +139,25 @@ object Server extends Logging {
     } else  Wallet.loadFromFile(file)
 
     wallet.addEventListener(new AbstractWalletEventListener {
-      override def onCoinsSent(wallet: Wallet,
+      override def onCoinsSent(w: Wallet,
 			       tx: Transaction,
 			       prevBalance: BigInteger,
 			       newBalance: BigInteger ) {
-	super.onCoinsSent(wallet, tx, prevBalance, newBalance)
+	super.onCoinsSent(w, tx, prevBalance, newBalance)
 	info(s"onCoinsSent listener called: $prevBalance -> $newBalance\n$tx")
       }
+      override def onCoinsReceived(
+	w: Wallet,
+	tx: Transaction,
+	prevBalance: BigInteger,
+	newBalance: BigInteger
+      ) { synchronized {
+	wallet.saveToFile(file)
+        println(s"received ${tx.getValueSentToMe(wallet)} microcents")
+        println(s"transaction ${tx.toString(null)}")
+        println(s"previous balance $prevBalance")
+        println(s"new balance $newBalance")
+      }}
     })
 
     wallet
