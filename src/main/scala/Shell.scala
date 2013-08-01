@@ -26,7 +26,8 @@ object Shell extends OptParse {
   def main (args: Array[String]) {
     parse(args)
     val actorSystem = ActorSystem("BitcoinjCli")
-    val bitcoins = actorSystem.actorOf( Props(classOf[Server],wallet.getOrElse("test.wallet")),"MainActor" )
+    val walletName = wallet.getOrElse("test.wallet")
+    val bitcoins = actorSystem.actorOf( Props(classOf[Server],walletName),"MainActor" )
 
     val terminator = actorSystem.actorOf(Props(classOf[Terminator],bitcoins))
 
@@ -73,7 +74,7 @@ object Shell extends OptParse {
 	case "wallet" ⇒
 	  val contents = Await.result(bitcoins ? WhatContents, timeout.duration).
 	  asInstanceOf[WalletContents]
-          println(s"The wallet contains ${contents.addresses.size} addresses")
+          println(s"The wallet file $walletName contains ${contents.addresses.size} addresses")
           contents.addresses.foreach {
 	    address ⇒ println(s"Key Address: $address")
           }
