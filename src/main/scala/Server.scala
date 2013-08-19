@@ -81,6 +81,14 @@ class Server(walletName: String) extends Actor with ActorLogging with Logging {
       wallet.getPendingTransactions.map(_.getHashAsString).toList
     )
 
+    case WhatTransactions ⇒ sender ! 
+      wallet.getTransactionsByTime.map(t =>
+	t.getUpdateTime.toString + ' ' +
+	t.getConfidence.toString + ' ' +
+        t.getHashAsString + ' ' +
+        t.getValue(wallet).toString
+    ).toList
+
     case WhoArePeers ⇒
       sender ! peerGroup.getConnectedPeers.map(_.getAddress.toString).toList
 
@@ -191,6 +199,7 @@ object Server extends Logging {
 			    availableBalance: BigInt,
 			    estimatedBalance: BigInt,
 			    unconfirmed: List[String])
+  case object WhatTransactions
   case class Payment(address: String, amount: BigInt)
   type Error = Option[Exception]
   case object WhoArePeers

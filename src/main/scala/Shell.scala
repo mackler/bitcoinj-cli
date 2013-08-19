@@ -86,6 +86,11 @@ object Shell extends OptParse {
           contents.addresses.foreach {
 	    address ⇒ println(s"Key Address: $address")
           }
+
+	  val transactions = Await.result(bitcoins ? WhatTransactions, timeout.duration).
+	  asInstanceOf[List[String]]
+	  transactions.foreach(println)
+
 	  println(s"Balance in microcents: avail. ${contents.availableBalance}; est. ${contents.estimatedBalance}")
 	  if (contents.unconfirmed.size > 0) {
 	    println("Unconfirmed transactions pending:")
