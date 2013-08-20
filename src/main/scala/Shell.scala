@@ -1,5 +1,7 @@
 package org.mackler.bitcoincli
 
+import com.google.bitcoin.core.Utils._
+
 import akka.actor.{Actor,ActorLogging,ActorRef,ActorSystem,Props,Terminated}
 
 import scala.concurrent.Await
@@ -16,9 +18,15 @@ import java.util.Date
 
 object Shell extends OptParse {
   import Server._
+  implicit val j2bi = scala.math.BigInt.javaBigInteger2bigInt _
 
   val wallet = StrOpt()
-  val consoleReader: Option[ConsoleReader] = None
+
+  val consoleReader = new ConsoleReader
+  val historyFile = (new java.io.File(".history")).getAbsoluteFile
+  val history: FileHistory = new FileHistory(historyFile)
+  consoleReader.setHistory(history)
+
   val prompt = "bitcoinj> "
   var terminatorOption: Option[ActorRef]     = None
   def terminator                             = terminatorOption.get
@@ -31,10 +39,6 @@ object Shell extends OptParse {
 
     val terminator = actorSystem.actorOf(Props(classOf[Terminator],bitcoins))
 
-    val consoleReader = Some(new ConsoleReader)
-    val historyFile = (new java.io.File(".history")).getAbsoluteFile
-    val history = new FileHistory(historyFile)
-    consoleReader.get.setHistory(history)
     var line = ""
     var exiting: Boolean = false
 
@@ -56,7 +60,7 @@ object Shell extends OptParse {
     implicit val timeout = Timeout(5.seconds)
 
     do {
-      line = consoleReader.get.readLine(prompt)
+      line = consoleReader.readLine(prompt)
       if (line == null) exiting = true else {
       val args = line.split("[\\s]+")
       args(0) match {
@@ -91,7 +95,7 @@ object Shell extends OptParse {
 	  asInstanceOf[List[String]]
 	  transactions.foreach(println)
 
-	  println(s"Balance in microcents: avail. ${contents.availableBalance}; est. ${contents.estimatedBalance}")
+	  println(s"Balance in BTC: avail. ${bitcoinValueToFriendlyString(contents.availableBalance)}; estimated. ${bitcoinValueToFriendlyString(contents.estimatedBalance)}")
 	  if (contents.unconfirmed.size > 0) {
 	    println("Unconfirmed transactions pending:")
             contents.unconfirmed.foreach(println)
@@ -103,15 +107,16 @@ object Shell extends OptParse {
 	  else println("No peers connected")
 
 	case "pay" ⇒
-	  if (args.length != 3) println("usage: pay <address> <microcents>")
+	  if (args.length != 3) println("usage: pay <address> <bitcoins>")
 	  else try {
-	    val amount = BigInt(args(2))
+	    val amount = toNanoCoins(args(2))
             Await.result(bitcoins ? Payment(args(1), amount), timeout.duration) match {
               case t: Throwable ⇒ println(s"Payment failed; ${t.getMessage}")
               case hash: String ⇒ println(s"$hash broadcast at ${new Date()}")
             }
 	  } catch {
 	    case e: NumberFormatException ⇒ println("Invalid payment amount")
+	    case e: ArithmeticException ⇒ println("Amount fraction or range error")
 	  }
 
 	case "replay" ⇒ bitcoins ! Replay
@@ -133,6 +138,8 @@ object Shell extends OptParse {
         case _ ⇒ if (args.size > 0 && line != "") println(s"unknown command: ${args(0)}")
       }}
     } while (!exiting)
+    val fileHistory = consoleReader.getHistory.asInstanceOf[FileHistory]
+    consoleReader.getHistory.asInstanceOf[FileHistory].flush()
     bitcoins ! Terminate
   }
 
@@ -142,8 +149,7 @@ object Shell extends OptParse {
       case Terminated(_) ⇒
 	log.info("Bitcoins Actor has terminated, shutting down")
         context.system.shutdown()
-        println("exiting")
-        consoleReader.get.getHistory.asInstanceOf[FileHistory].flush()
+        println("exiting...")
         System.exit(0)
     }
   }

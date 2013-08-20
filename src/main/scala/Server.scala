@@ -2,6 +2,7 @@ package org.mackler.bitcoincli
 
 import com.google.bitcoin.core.{AbstractWalletEventListener,Address,BlockChain,DownloadListener,
 				ECKey,NetworkParameters,PeerGroup,Transaction,Wallet}
+import com.google.bitcoin.core.Utils._
 import com.google.bitcoin.core.Wallet.SendRequest
 import com.google.bitcoin.core.Transaction.MIN_NONDUST_OUTPUT
 import com.google.bitcoin.discovery.DnsDiscovery
@@ -84,9 +85,9 @@ class Server(walletName: String) extends Actor with ActorLogging with Logging {
     case WhatTransactions ⇒ sender ! 
       wallet.getTransactionsByTime.map(t =>
 	t.getUpdateTime.toString + ' ' +
-	t.getConfidence.toString + ' ' +
+	"(depth " + t.getConfidence.getDepthInBlocks.toString + ") " +
         t.getHashAsString + ' ' +
-        t.getValue(wallet).toString
+        "BTC " + bitcoinValueToFriendlyString(t.getValue(wallet))
     ).toList
 
     case WhoArePeers ⇒
