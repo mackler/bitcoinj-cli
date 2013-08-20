@@ -34,7 +34,7 @@ object Shell extends OptParse {
   def main (args: Array[String]) {
     parse(args)
     val actorSystem = ActorSystem("BitcoinjCli")
-    val walletName = wallet.getOrElse("test.wallet")
+    val walletName = wallet.getOrElse("default.wallet")
     val bitcoins = actorSystem.actorOf( Props(classOf[Server],walletName),"MainActor" )
 
     val terminator = actorSystem.actorOf(Props(classOf[Terminator],bitcoins))
