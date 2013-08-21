@@ -92,10 +92,10 @@ object Shell extends OptParse {
           }
 
 	  val transactions = Await.result(bitcoins ? WhatTransactions, timeout.duration).
-	  asInstanceOf[List[String]]
-	  transactions.foreach(println)
+	                     asInstanceOf[List[TxData]]
+          if(transactions.size > 0) println(formatTxs(transactions))
 
-	  println(s"Balance in BTC: avail. ${bitcoinValueToFriendlyString(contents.availableBalance)}; estimated. ${bitcoinValueToFriendlyString(contents.estimatedBalance)}")
+	  println(s"Wallet balance in BTC: available: ${bitcoinValueToFriendlyString(contents.availableBalance)}; estimated: ${bitcoinValueToFriendlyString(contents.estimatedBalance)}")
 	  if (contents.unconfirmed.size > 0) {
 	    println("Unconfirmed transactions pending:")
             contents.unconfirmed.foreach(println)
@@ -152,6 +152,40 @@ object Shell extends OptParse {
         println("exiting...")
         System.exit(0)
     }
+  }
+
+  private def formatTxs(transactions: List[TxData]): String = {
+    val fmt = java.text.DateFormat.
+              getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
+    val bals: List[Tuple4[Date, BigInt, BigInt, String]] =
+	transactions.reverse.scanLeft((new Date, BigInt(0), BigInt(0),"")) { case (r,c) =>
+	  val bal = r._3 + c.amount
+	  (c.date, c.amount, bal, c.hash)
+      }.tail
+      val strings: List[Tuple5[String,String,String,String,String]] =
+	bals.map(t => (
+	  fmt.format(t._1),
+	  (if(t._2 > 0) bitcoinValueToFriendlyString(t._2) else ""),
+	  (if(t._2 < 0) bitcoinValueToFriendlyString(t._2) else ""),
+	  bitcoinValueToFriendlyString(t._3),
+	  t._4
+        ))
+      val maxDate = strings.map(t => t._1.length).max
+      val maxDr = strings.map(t => t._2.length).max
+      val maxCr = strings.map(t => t._3.length).max
+      val maxBal = strings.map(t => t._4.length).max
+      "Date".formatted(s"%${maxDate}s") + "  " +
+      "Dr.".formatted(s"%${maxDr}s") + "  " +
+      "Cr.".formatted(s"%${maxCr}s") + "  " +
+      "Bal.".formatted(s"%${maxBal}s") + "  " +
+      "Transaction ID\n" +
+      strings.map { t =>
+	t._1.formatted(s"%${maxDate}s") + "  " +
+	t._2.formatted(s"%${maxDr}s") + "  " +
+	t._3.formatted(s"%${maxCr}s") + "  " +
+	t._4.formatted(s"%${maxBal}s") + "  " +
+	t._5
+      }.mkString("\n")
   }
 
 }

@@ -84,10 +84,11 @@ class Server(walletName: String) extends Actor with ActorLogging with Logging {
 
     case WhatTransactions ⇒ sender ! 
       wallet.getTransactionsByTime.map(t =>
-	t.getUpdateTime.toString + ' ' +
+	TxData(t.getUpdateTime, t.getConfidence.getDepthInBlocks, t.getHashAsString, t.getValue(wallet))
+/*	t.getUpdateTime.toString + ' ' +
 	"(depth " + t.getConfidence.getDepthInBlocks.toString + ") " +
         t.getHashAsString + ' ' +
-        "BTC " + bitcoinValueToFriendlyString(t.getValue(wallet))
+        "BTC " + bitcoinValueToFriendlyString(t.getValue(wallet))*/
     ).toList
 
     case WhoArePeers ⇒
@@ -228,6 +229,7 @@ object Server extends Logging {
 			    estimatedBalance: BigInt,
 			    unconfirmed: List[String])
   case object WhatTransactions
+  case class TxData(date: Date, depth: Int, hash: String, amount: BigInt)
   case class Payment(address: String, amount: BigInt)
   type Error = Option[Exception]
   case object WhoArePeers
