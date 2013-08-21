@@ -129,7 +129,7 @@ object Shell extends OptParse {
              |  status                   Display information about the running system.
              |  wallet                   Display information about the wallet.
              |  peers                    List all currently connected peers.
-             |  pay <address> <amount>   Send the indicated number of microcents.
+             |  pay <address> <amount>   Send the indicated number of Bitcoins.
              |  replay                   Clear transactions from wallet and download block chain.
              |  exit | quit              Exit this shell.
              |  help                     Display this help.""".stripMargin
