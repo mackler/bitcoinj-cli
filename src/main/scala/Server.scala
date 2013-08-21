@@ -178,6 +178,29 @@ object Server extends Logging {
     new BlockChain(networkParams, wallet, blockStore)
   }
 
+  import java.net.{InetAddress,InetSocketAddress}
+  private object Discovery extends com.google.bitcoin.discovery.PeerDiscovery {
+    def shutdown() {}
+    def getPeers(
+      timeoutValue: Long, 
+      timeoutUnit: java.util.concurrent.TimeUnit 
+    ) = Array[InetSocketAddress] (
+      // Got these by doing nslookup testnet-seed.bitcoin.petertodd.org
+      new InetSocketAddress(
+	InetAddress.getByAddress(Array[Byte](5.toByte, 9.toByte, 2.toByte, 145.toByte)), 18333
+      ),
+      new InetSocketAddress(
+	InetAddress.getByAddress(Array[Byte](77.toByte, 111.toByte, 9.toByte, 2.toByte)), 18333
+      ),
+      new InetSocketAddress(
+	InetAddress.getByAddress(Array[Byte](81.toByte, 221.toByte, 125.toByte, 10.toByte)), 18333
+      ),
+      new InetSocketAddress(
+	InetAddress.getByAddress(Array[Byte](198.toByte, 199.toByte, 70.toByte, 246.toByte)), 18333
+      )
+    )
+  }
+
   private def initializePeerGroup(
     networkParams: NetworkParameters,
     chain: BlockChain,
@@ -185,7 +208,11 @@ object Server extends Logging {
   ): PeerGroup = {
     val peerGroup = new PeerGroup(networkParams, chain)
     peerGroup.setUserAgent(BuildInfo.name, BuildInfo.version)
-    peerGroup.addPeerDiscovery(new DnsDiscovery(networkParams))
+    peerGroup.addPeerDiscovery(
+      new DnsDiscovery(networkParams)
+      // if the above line doesn't work use next
+      // Discovery
+    )
     peerGroup.addWallet(wallet)
     peerGroup.startAndWait()
     info(s"Peer group $peerGroup service has finished starting")
