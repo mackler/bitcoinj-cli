@@ -211,7 +211,7 @@ object Server extends Logging {
     peerGroup.setUserAgent(BuildInfo.name, BuildInfo.version)
     peerGroup.addPeerDiscovery(
       new DnsDiscovery(networkParams)
-      // if the above line doesn't work use next
+      // if the above line doesn't work try the next line instead
       // Discovery
     )
     peerGroup.addWallet(wallet)

@@ -56,7 +56,9 @@ object Shell extends OptParse {
 	sys.exit(1)
     }
 
-    println("Welcome to the interactive bitcoinj shell")
+    print("Welcome to the interactive bitcoinj shell.  ")
+    println(s"Using wallet file $walletName.")
+
     implicit val timeout = Timeout(5.seconds)
 
     do {
@@ -163,6 +165,7 @@ object Shell extends OptParse {
 	  (c.date, c.amount, bal, c.hash)
       }.tail
       val strings: List[Tuple5[String,String,String,String,String]] =
+	("Date","Dr.","Cr.","Bal.","Transaction ID") ::
 	bals.map(t => (
 	  fmt.format(t._1),
 	  (if(t._2 > 0) bitcoinValueToFriendlyString(t._2) else ""),
@@ -174,11 +177,6 @@ object Shell extends OptParse {
       val maxDr = strings.map(t => t._2.length).max
       val maxCr = strings.map(t => t._3.length).max
       val maxBal = strings.map(t => t._4.length).max
-      "Date".formatted(s"%${maxDate}s") + "  " +
-      "Dr.".formatted(s"%${maxDr}s") + "  " +
-      "Cr.".formatted(s"%${maxCr}s") + "  " +
-      "Bal.".formatted(s"%${maxBal}s") + "  " +
-      "Transaction ID\n" +
       strings.map { t =>
 	t._1.formatted(s"%${maxDate}s") + "  " +
 	t._2.formatted(s"%${maxDr}s") + "  " +
