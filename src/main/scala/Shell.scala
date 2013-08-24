@@ -56,8 +56,7 @@ object Shell extends OptParse {
 	sys.exit(1)
     }
 
-    print("Welcome to the interactive bitcoinj shell.  ")
-    println(s"Using wallet file $walletName.")
+    print("Welcome to the interactive bitcoinj shell.\n")
 
     implicit val timeout = Timeout(5.seconds)
 

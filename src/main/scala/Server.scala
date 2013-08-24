@@ -85,10 +85,6 @@ class Server(walletName: String) extends Actor with ActorLogging with Logging {
     case WhatTransactions ⇒ sender ! 
       wallet.getTransactionsByTime.map(t =>
 	TxData(t.getUpdateTime, t.getConfidence.getDepthInBlocks, t.getHashAsString, t.getValue(wallet))
-/*	t.getUpdateTime.toString + ' ' +
-	"(depth " + t.getConfidence.getDepthInBlocks.toString + ") " +
-        t.getHashAsString + ' ' +
-        "BTC " + bitcoinValueToFriendlyString(t.getValue(wallet))*/
     ).toList
 
     case WhoArePeers ⇒
@@ -102,6 +98,7 @@ class Server(walletName: String) extends Actor with ActorLogging with Logging {
         sender ! new Exception(s"Amount must be at least $MIN_NONDUST_OUTPUT")
       else {
         val request = SendRequest.to( new Address(networkParams, address), amount.bigInteger )
+        // TODO: Next line throws KeyCrypterException if ECKey lacks private key necessary for signing.
         if (wallet.completeTx(request)) {
           wallet.commitTx(request.tx)
           wallet.saveToFile(walletFile)
@@ -141,12 +138,15 @@ object Server extends Logging {
 
   private def initializeWallet(file: File, networkParams: NetworkParameters): Wallet = {
     val wallet = if (!file.exists()) {
-	info(s"Creating new wallet file $file")
+	println(s"Creating new wallet file $file")
 	val w = new Wallet(networkParams)
         w.addKey(new ECKey)
         w.saveToFile(file)
         w
-    } else  Wallet.loadFromFile(file)
+    } else {
+      println(s"Using existing wallet file $file")
+      Wallet.loadFromFile(file)
+    }
 
     wallet.addEventListener(new AbstractWalletEventListener {
       override def onCoinsSent(w: Wallet,
@@ -163,10 +163,10 @@ object Server extends Logging {
 	newBalance: BigInteger
       ) { synchronized {
 	wallet.saveToFile(file)
-        println(s"received ${tx.getValueSentToMe(wallet)} microcents")
-        println(s"transaction ${tx.toString(null)}")
-        println(s"previous balance $prevBalance")
-        println(s"new balance $newBalance")
+        println(s"ALERT: you just received ${tx.getValueSentToMe(wallet)} microcents")
+        println(s"  transaction ${tx.toString(null)}")
+        println(s"  Previous balance: BTC ${bitcoinValueToFriendlyString(prevBalance)}")
+        println(s"  New balance: BTC ${bitcoinValueToFriendlyString(newBalance)}")
       }}
     })
 
@@ -187,9 +187,9 @@ object Server extends Logging {
     val peerGroup = new PeerGroup(networkParams, chain)
     peerGroup.setUserAgent(BuildInfo.name, BuildInfo.version)
     peerGroup.addPeerDiscovery(
-      new DnsDiscovery(networkParams)
+      // new DnsDiscovery(networkParams)
       // if the above line doesn't work try the next line instead
-      // Discovery
+      Discovery
     )
     peerGroup.addWallet(wallet)
     peerGroup.startAndWait()
