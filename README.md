@@ -34,7 +34,8 @@ Peer Discovery
 This program uses DNS peer discovery, which does not always work well
 on the test net.  If you are unable to connect to peers then you can
 uncomment the appropriate line in `Server.scala` to use a hard-coded
-list of peers rather than DNS discovery.
+list of peers rather than DNS discovery.  Or the DNS discovery might
+be commented out depending on where I left things.
 
 Bugs
 ----
