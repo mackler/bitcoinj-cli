@@ -12,10 +12,11 @@ import com.google.bitcoin.store.UnreadableWalletException
 
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.FutureCallback
+import com.google.bitcoin.kits.WalletAppKit
 
 import akka.actor.{Actor,ActorLogging,Props}
 
-import grizzled.slf4j.Logging
+//import grizzled.slf4j.Logging
 
 import collection.JavaConversions._
 
@@ -23,47 +24,39 @@ import java.io.{File, IOException}
 import java.math.BigInteger
 import java.util.Date
 
-class Server(walletName: String) extends Actor with ActorLogging with Logging {
+class Server(walletPrefix: String) extends Actor with ActorLogging {
   import Server._
-
-  private val walletFile = new File(walletName)
-
-  var wallet:    Wallet     = null
-  var chain:     BlockChain = null
-  var peerGroup: PeerGroup  = null
 
   var downloadPercentage: Float = 0
 
-  override def preStart() {
-    wallet = try {
-      initializeWallet(walletFile, networkParams)
-    } catch {
-      case e: UnreadableWalletException ⇒
-        println(s"Failure reading wallet: ${e.getMessage}")
-        context.stop(self)
-        null
+  val walletAppKit = (new WalletAppKit(networkParams, new java.io.File("."), walletPrefix) {
+    override def onSetupCompleted() {
+      log.debug(s"Bitcoin wallet has ${wallet.getKeychainSize} keys in its keychain")
+      log.debug("Starting download of block chain")
+      wallet addEventListener walletEventListener
     }
-
-    bringUpNetwork()
-  }
-
-  private def bringUpNetwork() {
-    chain     = initializeBlockChain(networkParams, wallet)
-    peerGroup = initializePeerGroup(networkParams, chain, wallet)
-
-    val downloadListener = new DownloadListener {
-      override def startDownload(block: Int) {}
-      override def progress(pct: Double, blocksSoFar: Int, date: Date) {
-	self ! DownloadProgress(pct.toFloat)
+  }).
+    setPeerNodes (Discovery.peerAddresses: _*).
+    setDownloadListener {
+      new DownloadListener {
+	override def startDownload(block: Int) {}
+	override def progress(pct: Double, blocksSoFar: Int, date: Date) {
+	  self ! DownloadProgress(pct.toFloat)
+	}
+	override def doneDownload() {
+	  self ! DownloadProgress(100.toFloat)
+	  println("Block chain download is complete.")
+	}
       }
-      override def doneDownload() {
-	wallet.saveToFile(walletFile)
-	downloadPercentage = 100
-      }
-    }
+    }.
+    setAutoSave (true).
+    setBlockingStartup (false)
 
-    peerGroup.startBlockChainDownload(downloadListener)
-  }
+  walletAppKit.start()
+
+  def wallet = walletAppKit.wallet
+  def chain =  walletAppKit.chain
+  def peerGroup =  walletAppKit.peerGroup
 
   def receive = {
 
@@ -91,7 +84,9 @@ class Server(walletName: String) extends Actor with ActorLogging with Logging {
       sender ! peerGroup.getConnectedPeers.map(_.getAddress.toString).toList
 
     case HowManyPeers ⇒
-      sender ! (peerGroup.numConnectedPeers, peerGroup.getMinBroadcastConnections)
+      val pg = peerGroup
+      sender ! ( if (pg != null) (peerGroup.numConnectedPeers, peerGroup.getMinBroadcastConnections)
+                 else (0,0) )
 
     case Payment(address, amount) ⇒
       if (amount < MIN_NONDUST_OUTPUT)
@@ -101,7 +96,6 @@ class Server(walletName: String) extends Actor with ActorLogging with Logging {
         // TODO: Next line throws KeyCrypterException if ECKey lacks private key necessary for signing.
         if (wallet.completeTx(request)) {
           wallet.commitTx(request.tx)
-          wallet.saveToFile(walletFile)
           val broadcastTransaction = peerGroup.broadcastTransaction(request.tx)
 	  Futures.addCallback(broadcastTransaction, new FutureCallback[Transaction] {
 	    def onSuccess(result: Transaction) { println(s"Payment propagated at ${new Date()}\n$result") }
@@ -113,88 +107,38 @@ class Server(walletName: String) extends Actor with ActorLogging with Logging {
         }
       }
 
-    case Replay ⇒
-      downloadPercentage = 0
-      chain.getBlockStore.close()
-      chainFile.delete()
-      wallet.clearTransactions(0)
-      peerGroup.stopAndWait()
-      bringUpNetwork()
-  }
+      case m => log.warning(s"Ignoring unrecognized ${m.getClass.getSimpleName} message: $m")
 
-  override def postStop() {
-    log.info("Main actor stopping")
-    chain.getBlockStore.close()
-    wallet.saveToFile(walletFile)
-    peerGroup.stop()
   }
 
 }
 
-object Server extends Logging {
+object Server {
+
+  val log = org.slf4j.LoggerFactory.getLogger(this.getClass)
 
   private val networkParams = TestNet3Params.get()
   private final val chainFile = new File("spvchain")
 
-  private def initializeWallet(file: File, networkParams: NetworkParameters): Wallet = {
-    val wallet = if (!file.exists()) {
-	println(s"Creating new wallet file $file")
-	val w = new Wallet(networkParams)
-        w.addKey(new ECKey)
-        w.saveToFile(file)
-        w
-    } else {
-      println(s"Using existing wallet file $file")
-      Wallet.loadFromFile(file)
+  val walletEventListener = new AbstractWalletEventListener {
+    override def onCoinsSent(w: Wallet,
+			     tx: Transaction,
+			     prevBalance: BigInteger,
+			     newBalance: BigInteger ) {
+      super.onCoinsSent(w, tx, prevBalance, newBalance)
+      log.info(s"onCoinsSent listener called: $prevBalance -> $newBalance\n$tx")
     }
-
-    wallet.addEventListener(new AbstractWalletEventListener {
-      override def onCoinsSent(w: Wallet,
-			       tx: Transaction,
-			       prevBalance: BigInteger,
-			       newBalance: BigInteger ) {
-	super.onCoinsSent(w, tx, prevBalance, newBalance)
-	info(s"onCoinsSent listener called: $prevBalance -> $newBalance\n$tx")
-      }
-      override def onCoinsReceived(
-	w: Wallet,
-	tx: Transaction,
-	prevBalance: BigInteger,
-	newBalance: BigInteger
-      ) { synchronized {
-	wallet.saveToFile(file)
-        println(s"ALERT: you just received ${tx.getValueSentToMe(wallet)} microcents")
-        println(s"  transaction ${tx.toString(null)}")
-        println(s"  Previous balance: BTC ${bitcoinValueToFriendlyString(prevBalance)}")
-        println(s"  New balance: BTC ${bitcoinValueToFriendlyString(newBalance)}")
-      }}
-    })
-
-    wallet
-  }
-
-  private def initializeBlockChain(networkParams: NetworkParameters, wallet: Wallet): BlockChain = {
-    if (!chainFile.exists) wallet.clearTransactions(0)
-    val blockStore = new SPVBlockStore(networkParams, chainFile)
-    new BlockChain(networkParams, wallet, blockStore)
-  }
-
-  private def initializePeerGroup(
-    networkParams: NetworkParameters,
-    chain: BlockChain,
-    wallet: Wallet
-  ): PeerGroup = {
-    val peerGroup = new PeerGroup(networkParams, chain)
-    peerGroup.setUserAgent(BuildInfo.name, BuildInfo.version)
-    peerGroup.addPeerDiscovery(
-      // new DnsDiscovery(networkParams)
-      // if the above line doesn't work try the next line instead
-      Discovery
-    )
-    peerGroup.addWallet(wallet)
-    peerGroup.startAndWait()
-    info(s"Peer group $peerGroup service has finished starting")
-    peerGroup
+    override def onCoinsReceived(
+      wallet: Wallet,
+      tx: Transaction,
+      prevBalance: BigInteger,
+      newBalance: BigInteger
+    ) { synchronized {
+      println(s"ALERT: you just received ${tx.getValueSentToMe(wallet)} microcents")
+      println(s"  transaction ${tx.toString(null)}")
+      println(s"  Previous balance: BTC ${bitcoinValueToFriendlyString(prevBalance)}")
+      println(s"  New balance: BTC ${bitcoinValueToFriendlyString(newBalance)}")
+    }}
   }
 
   case object Terminate

@@ -1,6 +1,8 @@
 package org.mackler.bitcoincli
 
+import com.google.bitcoin.core.PeerAddress
 import java.net.{InetAddress,InetSocketAddress}
+
 private object Discovery extends com.google.bitcoin.discovery.PeerDiscovery {
 
   private val addresses: Array[Tuple4[Int,Int,Int,Int]] = Array(
@@ -27,6 +29,14 @@ private object Discovery extends com.google.bitcoin.discovery.PeerDiscovery {
     (106,187,52,100),
     (144,76,46,66)
   )
+
+  def peerAddresses: Array[PeerAddress] = addresses.map ( a =>
+      new PeerAddress ( new InetSocketAddress (
+        InetAddress.getByAddress(Array[Byte](a._1.toByte, a._2.toByte, a._3.toByte, a._4.toByte)),
+	18333
+      ))
+    )
+
 
   def getPeers(
     timeoutValue: Long, 

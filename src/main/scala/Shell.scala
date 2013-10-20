@@ -18,6 +18,7 @@ import java.util.Date
 
 object Shell extends OptParse {
   import Server._
+  System.setProperty("jline.shutdownhook","true") // otherwise jline leaves terminal echo off
   implicit val j2bi = scala.math.BigInt.javaBigInteger2bigInt _
 
   val wallet = StrOpt()
@@ -34,8 +35,8 @@ object Shell extends OptParse {
   def main (args: Array[String]) {
     parse(args)
     val actorSystem = ActorSystem("BitcoinjCli")
-    val walletName = wallet.getOrElse("default.wallet")
-    val bitcoins = actorSystem.actorOf( Props(classOf[Server],walletName),"MainActor" )
+    val walletPrefix = wallet.getOrElse("default")
+    val bitcoins = actorSystem.actorOf( Props(classOf[Server], walletPrefix), "bitcoinService" )
 
     val terminator = actorSystem.actorOf(Props(classOf[Terminator],bitcoins))
 
@@ -67,17 +68,18 @@ object Shell extends OptParse {
       args(0) match {
 
         case "status" ⇒
-          val future = bitcoins ? HowMuchDownloaded
-          val result = Await.result(future, timeout.duration).asInstanceOf[Float]
-	  if (result == 0) {
-	    val (have,want) = Await.result(bitcoins ? HowManyPeers, timeout.duration).
-	                      asInstanceOf[Tuple2[Int,Int]]
-	    println(s"Connected to $have of $want peers")
-          } else if (result < 100.0)
-            println(s"Downloading block chain, $result percent completed")
+          val downloadProgress = Await.result( (bitcoins ? HowMuchDownloaded), timeout.duration).
+                                 asInstanceOf[Float]
+          val (peersHave,peersWant) = Await.result(bitcoins ? HowManyPeers, timeout.duration).
+	                              asInstanceOf[Tuple2[Int,Int]]
+          print(s"Connected to $peersHave of at least $peersWant peers.  ")
+	  if (downloadProgress == 0) {
+            println("Block chain download not started yet.")
+          } else if (downloadProgress < 100.0)
+            println(s"Download of block chain $downloadProgress percent complete.")
           else {
             val s = actorSystem.uptime
-            println(String.format("Up %d:%02d:%02d",
+            println(String.format("Uptime: %d:%02d:%02d",
 				  (s/3600).asInstanceOf[AnyRef],
 				  ((s%3600)/60).asInstanceOf[AnyRef],
 				  ((s%60)).asInstanceOf[AnyRef]
@@ -87,16 +89,23 @@ object Shell extends OptParse {
 	case "wallet" ⇒
 	  val contents = Await.result(bitcoins ? WhatContents, timeout.duration).
 	  asInstanceOf[WalletContents]
-          println(s"The wallet file $walletName contains ${contents.addresses.size} addresses")
+          println(s"The wallet file ${walletPrefix}.wallet contains ${contents.addresses.size} address${
+	    if (contents.addresses.size != 1) "es"
+	  }:")
           contents.addresses.foreach {
-	    address ⇒ println(s"Key Address: $address")
+	    address ⇒ println(s"  $address")
           }
 
 	  val transactions = Await.result(bitcoins ? WhatTransactions, timeout.duration).
 	                     asInstanceOf[List[TxData]]
           if(transactions.size > 0) println(formatTxs(transactions))
 
-	  println(s"Wallet balance in BTC: available: ${bitcoinValueToFriendlyString(contents.availableBalance)}; estimated: ${bitcoinValueToFriendlyString(contents.estimatedBalance)}")
+	  println("Wallet balance in BTC: " + {
+	    val available = bitcoinValueToFriendlyString(contents.availableBalance)
+	    val estimated = bitcoinValueToFriendlyString(contents.estimatedBalance)
+	    if (available == estimated) available.toString
+            else s"available: $available; estimated: $estimated"
+	  })
 	  if (contents.unconfirmed.size > 0) {
 	    println("Unconfirmed transactions pending:")
             contents.unconfirmed.foreach(println)
@@ -131,7 +140,6 @@ object Shell extends OptParse {
              |  wallet                   Display information about the wallet.
              |  peers                    List all currently connected peers.
              |  pay <address> <amount>   Send the indicated number of Bitcoins.
-             |  replay                   Clear transactions from wallet and download block chain.
              |  exit | quit              Exit this shell.
              |  help                     Display this help.""".stripMargin
 	)
@@ -150,7 +158,7 @@ object Shell extends OptParse {
       case Terminated(_) ⇒
 	log.info("Bitcoins Actor has terminated, shutting down")
         context.system.shutdown()
-        println("exiting...")
+        print("exiting...")
         System.exit(0)
     }
   }

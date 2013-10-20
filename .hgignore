@@ -1,7 +1,9 @@
 (^|/)target/
 ~$
 ^\.ensime
-^.+\.wallet$
 ^\.history$
 ^.+\.log$
-^spvchain$
+\.wallet$
+\.spvchain$
+\.tmp$
+^trash$

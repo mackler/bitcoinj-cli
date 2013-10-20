@@ -1,52 +1,92 @@
 BitcoinJ Command-Line Interface
 ===============================
 
-This is a _very_ simple interactive shell for the excellent
-[bitcoinj](https://code.google.com/p/bitcoinj/) Java library by [Mike
-Hearn](http://plan99.net/~mike/) _et al._ All it does is connect to
-the test net and let you examine its state, look in the wallet, and
-make payments.
+This is a simple interactive shell user interface for the excellent
+[bitcoinj](https://code.google.com/p/bitcoinj/), which is a Java
+library by [Mike Hearn](http://plan99.net/~mike/) _et al._ This
+application uses `bitcoinj` to connect to the Bitcoin test net, to
+receive and to send payments, and has other commands for examining its
+state and looking in the wallet.
 
-This program is written in Scala.  Run it using sbt like this:
+This program is written in Scala and is built using the Simple Build
+Tool, [`sbt`](http://www.scala-sbt.org/release/docs/).  After you
+clone this repository, simply do:
 
-    sbt run
+    sbt start-script
 
-You can specify the filename of a wallet with the `--wallet` option:
+That will create an executable script named `start` in the `target`
+directory.  Then run this application:
 
-    sbt 'run --wallet=<filename>'
+    target/start
 
-If the above line doesn't work then you might have to first start
-`sbt` and then give the `run --wallet` command to the `sbt` shell.
+If a wallet file does not already exist then it will create a new one
+with a single key.
 
-If the wallet file does not exist then it will create one with a new
-key.  If you do not specify a filename for the wallet then it will be
-named `default.wallet`.
+You can specify the filename of an existing wallet with the `--wallet`
+option.  The wallet filename must end in `.wallet`.  Do not include
+the `.wallet` as part of the command-line option.  In other words, if
+your wallet file is named `foo.wallet` then the invocation will look
+like:
+
+    target/start --wallet=foo
+
+Of course, you can also use the standard sbt `run` task rather than
+`start-script`, if you want.
+
+Usage
+-----
 
 Once you're at the command prompt, entering `help` will display the
 available commands.
 
 This program generates a logfile, named `bitcoinj.log`, that you can
-watch to see what's happening.
+watch to see what's happening in the background.
 
 Peer Discovery
 --------------
 
-This program uses DNS peer discovery, which does not always work well
-on the test net.  If you are unable to connect to peers then you can
-uncomment the appropriate line in `Server.scala` to use a hard-coded
-list of peers rather than DNS discovery.  Or the DNS discovery might
-be commented out depending on where I left things.
+DNS peer discovery does not always work well on the test net,
+wherefore the IP numbers of the test peers are hard-coded into the
+source.  They may get out-of-date.  If you want to switch to DNS peer
+discovery, simply comment and uncomment the appropriate lines in
+`Server.scala`.
 
-Bugs
-----
+Getting the bitcoinj library
+--------------------
+
+For security reasons, the bitcoinj library is not available as a maven
+artifact; thus you must build it yourself.  This is not difficult.
+Simply
+[follow these instructions](https://code.google.com/p/bitcoinj/wiki/UsingMaven),
+starting where it reads "To get bitcoinj you can use git and check out
+your own copy."
+
+As of this writing, this application was built against bitcoinj repository
+commit
+[32a823804c4f](https://code.google.com/p/bitcoinj/source/detail?r=32a823804c4ff89f89aeff73da42498be84672ee),
+which may be different from the one shown in the referenced instructions.
+
+Known Bugs
+----------
+
+The wallet file, block chain file, and log file are put into the
+current working dectory.
+
+This application does not limit the size of the log file, which will
+keep growing and must be moved or deleted manually.
 
 If your EC Key doesn't have the private key necessary for signing a
 payment then you get a timeout rather than an appropriate message.
 (I'm learning to use Akka at the same time I'm learning to use
 bitcoinj.)
 
-Warning
-=======
-This is the first thing I've written using the `bitcoinj` library.
-**Not recommended for anything besides experimentation and learning.**
+Caveatis
+========
 
+This is the first thing I've written using the `bitcoinj` library.  I
+have not any unrecoverable disasters, but you are responsible for
+taking appropriate precautions with regard to backing up your wallet
+file.  In plain terms: **use at your own risk.**
+
+I welcome feedback:
+[AdamMackler@gmail.com](mailto://AdamMackler@gmail.com?subject=Bitcoinj-CLI+Feedback)
