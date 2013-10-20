@@ -1,7 +1,7 @@
 package org.mackler.bitcoincli
 
 import com.google.bitcoin.core.{AbstractWalletEventListener,Address,BlockChain,DownloadListener,
-				ECKey,NetworkParameters,PeerGroup,Transaction,Wallet}
+				ECKey,NetworkParameters,PeerGroup,Sha256Hash,Transaction,Wallet}
 import com.google.bitcoin.core.Utils._
 import com.google.bitcoin.core.Wallet.SendRequest
 import com.google.bitcoin.core.Transaction.MIN_NONDUST_OUTPUT
@@ -83,6 +83,12 @@ class Server(walletPrefix: String) extends Actor with ActorLogging {
 	TxData(t.getUpdateTime, t.getConfidence.getDepthInBlocks, t.getHashAsString, t.getValue(wallet))
     ).toList
 
+    case TxInquiry(id) =>
+      sender ! ( (Some(wallet.getTransaction(new Sha256Hash(id))): Option[Transaction]) match {
+	case None => Left("No such transaction in this wallet")
+	case Some(tx) => Right(tx.toString)
+      })
+
     case WhoArePeers ⇒ sender ! (peerGroup match {
 	case Some(pg) => pg.getConnectedPeers.map(_.getAddress.toString).toList
 	case None     => List[String]()
@@ -158,6 +164,7 @@ object Server {
     }}
   }
 
+  case class TxInquiry(txId: String)
   case object Terminate
   case class DownloadProgress(percentage: Float)
   case object HowMuchDownloaded

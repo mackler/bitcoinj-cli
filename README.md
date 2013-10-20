@@ -15,7 +15,7 @@ clone this repository, simply do:
     sbt start-script
 
 That will create an executable script named `start` in the `target`
-directory.  Then run this application:
+directory.  Then, to run this application:
 
     target/start
 
@@ -72,24 +72,25 @@ which may be different from the one shown in the referenced instructions.
 Known Bugs
 ----------
 
-The wallet file, block chain file, and log file are put into the
-current working directory.
+* The wallet file, block chain file, and log file are put into the
+  current working directory.
 
-This application does not limit the size of the log file, which will
-keep growing and must be moved or deleted manually.
+* This application does not limit the size of the log file, which will
+  keep growing and must be moved or deleted manually.
 
-If your EC Key doesn't have the private key necessary for signing a
-payment then you get a timeout rather than an appropriate message.
-(I'm learning to use Akka at the same time I'm learning to use
-bitcoinj.)
+* If your EC Key doesn't have the private key necessary for signing a
+  payment then you get a timeout rather than an appropriate message.
+  (I'm learning to use Akka at the same time I'm learning to use
+  bitcoinj.)
 
 Caveatis
 ========
 
-This is the first thing I've written using the `bitcoinj` library.  I
-have not had any unrecoverable disasters, but you are responsible for
-taking appropriate precautions with regard to backing up your wallet
-file.  In plain terms: **use at your own risk.**
+Obviously, it's foolish to use this or any other Bitcoin-wallet
+application without taking appropriate precautions to prevent coin
+loss.  I have not had any unrecoverable disasters using this
+application, but you are responsible for backing up your wallet file.
+In plain terms: **use at your own risk.**
 
 I welcome feedback:
 [AdamMackler@gmail.com](mailto://AdamMackler@gmail.com?subject=Bitcoinj-CLI+Feedback)

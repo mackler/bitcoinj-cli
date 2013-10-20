@@ -28,7 +28,7 @@ object Shell extends OptParse {
   val historyFile = (new java.io.File(".history")).getAbsoluteFile
   val history: FileHistory = new FileHistory(historyFile)
   consoleReader.setHistory(history)
-  consoleReader.addCompleter(new StringsCompleter("status","peers","wallet","pay","quit","exit","help"))
+  consoleReader.addCompleter(new StringsCompleter("status","peers","wallet","pay","transaction","quit","exit","help"))
 
   val prompt = "bitcoinj> "
   var terminatorOption: Option[ActorRef]     = None
@@ -131,17 +131,26 @@ object Shell extends OptParse {
 	    case e: ArithmeticException ⇒ println("Amount fraction or range error")
 	  }
 
+	case "transaction" => args.length match {
+	  case 2 => Await.result(bitcoins ? TxInquiry(args(1)), timeout.duration) match {
+              case Left(reason: String)    ⇒ println(reason)
+              case Right(txString: String) ⇒ println(txString)
+            }
+          case _ => println("usage: transaction <id>")
+	}
+
 	case "replay" ⇒ bitcoins ! Replay
 
 	case "exit" ⇒ exiting = true
 	case "quit" ⇒ exiting = true
 
 	case "help" ⇒ println(
-	  """|These commands are available in the shell:
+	  """|These commands are available in this shell:
              |  status                   Display information about the running system.
              |  wallet                   Display information about the wallet.
              |  peers                    List all currently connected peers.
              |  pay <address> <amount>   Send the indicated number of Bitcoins.
+             |  transaction <id>         Display details of the given transaction.
              |  exit | quit              Exit this shell.
              |  help                     Display this help.""".stripMargin
 	)
