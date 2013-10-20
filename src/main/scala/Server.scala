@@ -56,7 +56,10 @@ class Server(walletPrefix: String) extends Actor with ActorLogging {
 
   def wallet = walletAppKit.wallet
   def chain =  walletAppKit.chain
-  def peerGroup =  walletAppKit.peerGroup
+  def peerGroup =  {
+    val pg = walletAppKit.peerGroup
+    if (pg != null) Some(pg) else None
+  }
 
   def receive = {
 
@@ -80,32 +83,46 @@ class Server(walletPrefix: String) extends Actor with ActorLogging {
 	TxData(t.getUpdateTime, t.getConfidence.getDepthInBlocks, t.getHashAsString, t.getValue(wallet))
     ).toList
 
-    case WhoArePeers ⇒
-      sender ! peerGroup.getConnectedPeers.map(_.getAddress.toString).toList
+    case WhoArePeers ⇒ sender ! (peerGroup match {
+	case Some(pg) => pg.getConnectedPeers.map(_.getAddress.toString).toList
+	case None     => List[String]()
+      })
 
-    case HowManyPeers ⇒
-      val pg = peerGroup
-      sender ! ( if (pg != null) (peerGroup.numConnectedPeers, peerGroup.getMinBroadcastConnections)
-                 else (0,0) )
+    case HowManyPeers ⇒ sender ! (peerGroup match {
+      case None => 0
+      case Some(pg) => pg.numConnectedPeers
+    })
 
     case Payment(address, amount) ⇒
-      if (amount < MIN_NONDUST_OUTPUT)
-        sender ! new Exception(s"Amount must be at least $MIN_NONDUST_OUTPUT")
+      val pg = peerGroup
+      if( ! pg.isDefined ) sender ! new Exception("Peer Group is not yet initialized.  Please try again later.")
       else {
-        val request = SendRequest.to( new Address(networkParams, address), amount.bigInteger )
-        // TODO: Next line throws KeyCrypterException if ECKey lacks private key necessary for signing.
-        if (wallet.completeTx(request)) {
-          wallet.commitTx(request.tx)
-          val broadcastTransaction = peerGroup.broadcastTransaction(request.tx)
-	  Futures.addCallback(broadcastTransaction, new FutureCallback[Transaction] {
-	    def onSuccess(result: Transaction) { println(s"Payment propagated at ${new Date()}\n$result") }
-	    def onFailure(t: Throwable) { println(s"Payment failed ${t.getMessage}") }
-	  })
-	  sender ! request.tx.getHashAsString
-        } else {
-          sender ! new Exception("insufficient balance")
-        }
+	if (amount < MIN_NONDUST_OUTPUT)
+          sender ! new Exception(s"Amount must be at least $MIN_NONDUST_OUTPUT")
+	else {
+          val request = SendRequest.to( new Address(networkParams, address), amount.bigInteger )
+          // TODO: Next line throws KeyCrypterException if ECKey lacks private key necessary for signing.
+          if (wallet.completeTx(request)) {
+            wallet.commitTx(request.tx)
+            val broadcastTransaction = pg.get.broadcastTransaction(request.tx)
+	    Futures.addCallback(broadcastTransaction, new FutureCallback[Transaction] {
+	      def onSuccess(result: Transaction) { println(s"Payment propagated at ${new Date()}\n$result") }
+	      def onFailure(t: Throwable) { println(s"Payment failed ${t.getMessage}") }
+	    })
+	    sender ! request.tx.getHashAsString
+          } else {
+            sender ! new Exception("insufficient balance")
+          }
+	}
       }
+
+/*    case Replay ⇒
+      downloadPercentage = 0
+      chain.getBlockStore.close()
+      chainFile.delete()
+      wallet.clearTransactions(0)
+      peerGroup.stopAndWait()
+      bringUpNetwork()*/
 
       case m => log.warning(s"Ignoring unrecognized ${m.getClass.getSimpleName} message: $m")
 

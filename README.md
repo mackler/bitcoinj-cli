@@ -30,6 +30,9 @@ like:
 
     target/start --wallet=foo
 
+Any blockchain filename must match the wallet filename, but end in
+`.spvchain` rather than `.wallet`.
+
 Of course, you can also use the standard sbt `run` task rather than
 `start-script`, if you want.
 
@@ -52,13 +55,13 @@ discovery, simply comment and uncomment the appropriate lines in
 `Server.scala`.
 
 Getting the bitcoinj library
---------------------
+----------------------------
 
 For security reasons, the bitcoinj library is not available as a maven
 artifact; thus you must build it yourself.  This is not difficult.
 Simply
 [follow these instructions](https://code.google.com/p/bitcoinj/wiki/UsingMaven),
-starting where it reads "To get bitcoinj you can use git and check out
+beginning where it reads "To get bitcoinj you can use git and check out
 your own copy."
 
 As of this writing, this application was built against bitcoinj repository
@@ -70,7 +73,7 @@ Known Bugs
 ----------
 
 The wallet file, block chain file, and log file are put into the
-current working dectory.
+current working directory.
 
 This application does not limit the size of the log file, which will
 keep growing and must be moved or deleted manually.
@@ -84,7 +87,7 @@ Caveatis
 ========
 
 This is the first thing I've written using the `bitcoinj` library.  I
-have not any unrecoverable disasters, but you are responsible for
+have not had any unrecoverable disasters, but you are responsible for
 taking appropriate precautions with regard to backing up your wallet
 file.  In plain terms: **use at your own risk.**
 

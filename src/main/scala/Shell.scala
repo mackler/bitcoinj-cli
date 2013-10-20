@@ -3,16 +3,17 @@ package org.mackler.bitcoincli
 import com.google.bitcoin.core.Utils._
 
 import akka.actor.{Actor,ActorLogging,ActorRef,ActorSystem,Props,Terminated}
-
-import scala.concurrent.Await
 import akka.pattern.ask
 import akka.util.Timeout
-import scala.concurrent.duration._
+
+import scala.tools.jline.console.ConsoleReader
+import scala.tools.jline.console.completer.StringsCompleter
+import scala.tools.jline.console.history.FileHistory
 
 import com.frugalmechanic.optparse._
 
-import scala.tools.jline.console.history.FileHistory
-import scala.tools.jline.console.ConsoleReader
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 import java.util.Date
 
@@ -27,6 +28,7 @@ object Shell extends OptParse {
   val historyFile = (new java.io.File(".history")).getAbsoluteFile
   val history: FileHistory = new FileHistory(historyFile)
   consoleReader.setHistory(history)
+  consoleReader.addCompleter(new StringsCompleter("status","peers","wallet","pay","quit","exit","help"))
 
   val prompt = "bitcoinj> "
   var terminatorOption: Option[ActorRef]     = None
@@ -70,13 +72,13 @@ object Shell extends OptParse {
         case "status" ⇒
           val downloadProgress = Await.result( (bitcoins ? HowMuchDownloaded), timeout.duration).
                                  asInstanceOf[Float]
-          val (peersHave,peersWant) = Await.result(bitcoins ? HowManyPeers, timeout.duration).
-	                              asInstanceOf[Tuple2[Int,Int]]
-          print(s"Connected to $peersHave of at least $peersWant peers.  ")
+          val peerCount = Await.result(bitcoins ? HowManyPeers, timeout.duration).
+	                              asInstanceOf[Int]
+          print(s"Connected to $peerCount peer${ peerCount match { case 1 => ""; case _ => "s"} }.  ")
 	  if (downloadProgress == 0) {
             println("Block chain download not started yet.")
           } else if (downloadProgress < 100.0)
-            println(s"Download of block chain $downloadProgress percent complete.")
+            printf("Block Chain %.0f%% downloaded.\n", downloadProgress)
           else {
             val s = actorSystem.uptime
             println(String.format("Uptime: %d:%02d:%02d",
@@ -90,7 +92,7 @@ object Shell extends OptParse {
 	  val contents = Await.result(bitcoins ? WhatContents, timeout.duration).
 	  asInstanceOf[WalletContents]
           println(s"The wallet file ${walletPrefix}.wallet contains ${contents.addresses.size} address${
-	    if (contents.addresses.size != 1) "es"
+	    if (contents.addresses.size != 1) "es" else ""
 	  }:")
           contents.addresses.foreach {
 	    address ⇒ println(s"  $address")
