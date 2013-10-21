@@ -29,7 +29,7 @@ class Server(walletPrefix: String) extends Actor with ActorLogging {
 
   var downloadPercentage: Float = 0
 
-  val walletAppKit = (new WalletAppKit(networkParams, new java.io.File("."), walletPrefix) {
+  val walletAppKit = (new WalletAppKit(networkParams, new File("."), walletPrefix) {
     override def onSetupCompleted() {
       log.debug(s"Bitcoin wallet has ${wallet.getKeychainSize} keys in its keychain")
       log.debug("Starting download of block chain")
@@ -88,6 +88,17 @@ class Server(walletPrefix: String) extends Actor with ActorLogging {
 	case None => Left("No such transaction in this wallet")
 	case Some(tx) => Right(tx.toString)
       })
+
+    case MakeBackup(filename) => sender ! (try {
+      val file = new File( filename + (filename.matches(".*wallet") match {
+	case false => ".wallet"
+	case true => ""
+      }) )
+      wallet.saveToFile(file)
+      Right((file.getName,file.length))
+    } catch {
+      case e: Exception => Left(e.getMessage)
+    })
 
     case WhoArePeers ⇒ sender ! (peerGroup match {
 	case Some(pg) => pg.getConnectedPeers.map(_.getAddress.toString).toList
@@ -164,6 +175,7 @@ object Server {
     }}
   }
 
+  case class MakeBackup(filename: String)
   case class TxInquiry(txId: String)
   case object Terminate
   case class DownloadProgress(percentage: Float)

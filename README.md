@@ -14,24 +14,20 @@ clone this repository, simply do:
 
     sbt start-script
 
-That will create an executable script named `start` in the `target`
-directory.  Then, to run this application:
+That will compile the source code and then create an executable shell
+script named `start` in the `target` directory.  Then, to run this
+application:
 
     target/start
 
 If a wallet file does not already exist then it will create a new one
 with a single key.
 
-You can specify the filename of an existing wallet with the `--wallet`
-option.  The wallet filename must end in `.wallet`.  Do not include
-the `.wallet` as part of the command-line option.  In other words, if
-your wallet file is named `foo.wallet` then the invocation will look
-like:
-
-    target/start --wallet=foo
-
-Any blockchain filename must match the wallet filename, but end in
-`.spvchain` rather than `.wallet`.
+You can specify the filename of a wallet with the `--wallet` option.
+If the filename you specifiy does not end in `.wallet` then that
+suffix will be added to the name of the wallet file that is created or
+opened.  Any blockchain filename must match the wallet filename, but
+end in `.spvchain` rather than `.wallet`.
 
 Of course, you can also use the standard sbt `run` task rather than
 `start-script`, if you want.

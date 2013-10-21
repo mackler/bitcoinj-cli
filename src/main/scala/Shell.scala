@@ -28,17 +28,22 @@ object Shell extends OptParse {
   val historyFile = (new java.io.File(".history")).getAbsoluteFile
   val history: FileHistory = new FileHistory(historyFile)
   consoleReader.setHistory(history)
-  consoleReader.addCompleter(new StringsCompleter("status","peers","wallet","pay","transaction","quit","exit","help"))
+  consoleReader.addCompleter( new StringsCompleter (
+    "status","peers","wallet","pay","transaction","backup","quit","exit","help"
+  ))
 
   val prompt = "bitcoinj> "
-  var terminatorOption: Option[ActorRef]     = None
-  def terminator                             = terminatorOption.get
+/*  var terminatorOption: Option[ActorRef]     = None
+  def terminator                             = terminatorOption.get */
 
   def main (args: Array[String]) {
     parse(args)
     val actorSystem = ActorSystem("BitcoinjCli")
-    val walletPrefix = wallet.getOrElse("default")
-    val bitcoins = actorSystem.actorOf( Props(classOf[Server], walletPrefix), "bitcoinService" )
+    val walletPrefix = wallet.getOrElse("default").replaceAll("\\.wallet$","")
+    val bitcoins = actorSystem.actorOf(
+      Props(classOf[Server], walletPrefix),
+      "bitcoinService"
+    )
 
     val terminator = actorSystem.actorOf(Props(classOf[Terminator],bitcoins))
 
@@ -78,7 +83,7 @@ object Shell extends OptParse {
 	  if (downloadProgress == 0) {
             println("Block chain download not started yet.")
           } else if (downloadProgress < 100.0)
-            printf("Block Chain %.0f%% downloaded.\n", downloadProgress)
+            printf("Block Chain is %.0f%% downloaded.\n", downloadProgress)
           else {
             val s = actorSystem.uptime
             println(String.format("Uptime: %d:%02d:%02d",
@@ -139,6 +144,16 @@ object Shell extends OptParse {
           case _ => println("usage: transaction <id>")
 	}
 
+	case "backup" => args.length match {
+	  case 2 => Await.result(bitcoins ? MakeBackup(args(1)), timeout.duration) match {
+              case Left(reason: String) => println(s"FAIL: $reason")
+              case Right((name: String,size: Long)) =>
+		println(s"Wrote ${size.toString} bytes to file $name")
+            }
+
+          case _ => println("usage: backup <filename>")
+	}
+
 	case "replay" ⇒ bitcoins ! Replay
 
 	case "exit" ⇒ exiting = true
@@ -151,6 +166,7 @@ object Shell extends OptParse {
              |  peers                    List all currently connected peers.
              |  pay <address> <amount>   Send the indicated number of Bitcoins.
              |  transaction <id>         Display details of the given transaction.
+             |  backup <filename>        Make a backup copy of the wallet.
              |  exit | quit              Exit this shell.
              |  help                     Display this help.""".stripMargin
 	)
