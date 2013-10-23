@@ -4,7 +4,7 @@ seq(SbtStartScript.startScriptForClassesSettings: _*)
 
 name := "Bitcoinj-CLI"
 
-version := "0.1.1"
+version := "0.1.2"
 
 scalaVersion := "2.10.2"
 
@@ -16,11 +16,10 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= Seq (
-  "com.typesafe.akka"         %% "akka-actor"          % "2.2.0",
-  "com.typesafe.akka"          % "akka-slf4j_2.10"     % "2.2.0",
+  "com.typesafe.akka"         %% "akka-actor"          % "2.2.1",
+  "com.typesafe.akka"          % "akka-slf4j_2.10"     % "2.2.1",
   "ch.qos.logback"             % "logback-classic"     % "1.0.13",
   "org.scala-lang.virtualized" % "jline"               % "2.10.2-RC2",
-//  "org.clapper"                % "grizzled-slf4j_2.10" % "1.0.1",
   "com.google"                 % "bitcoinj"            % "0.11-SNAPSHOT",
   "com.frugalmechanic"         % "scala-optparse_2.10" % "1.1.1"
 )

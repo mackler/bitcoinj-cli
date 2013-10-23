@@ -1,12 +1,16 @@
 BitcoinJ Command-Line Interface
 ===============================
 
-This is a simple interactive shell user interface for the excellent
-[bitcoinj](https://code.google.com/p/bitcoinj/), which is a Java
-library by [Mike Hearn](http://plan99.net/~mike/) _et al._ This
-application uses `bitcoinj` to connect to the Bitcoin test net, to
-receive and to send payments, and has other commands for examining its
-state and looking in the wallet.
+This is a command-line-interface Bitcoin-wallet application.  It is
+built around the excellent
+[bitcoinj](https://code.google.com/p/bitcoinj/) Java library by
+[Mike Hearn](http://plan99.net/~mike/) _et al._ This application
+connects to the Bitcoin test net, and has built-in commands to send
+payments, to examine its state, to look in the wallet, and for other
+related purposes.
+
+Building
+--------
 
 This program is written in Scala and is built using the Simple Build
 Tool, [`sbt`](http://www.scala-sbt.org/release/docs/).  After you
@@ -14,8 +18,13 @@ clone this repository, simply do:
 
     sbt start-script
 
-That will compile the source code and then create an executable shell
-script named `start` in the `target` directory.  Then, to run this
+That will compile this application and create an executable shell
+script named `start` in the `target` directory.
+
+Running
+-------
+
+Once you have built the shell script named `start`, you can run this
 application:
 
     target/start
@@ -23,38 +32,56 @@ application:
 If a wallet file does not already exist then it will create a new one
 with a single key.
 
-You can specify the filename of a wallet with the `--wallet` option.
+You can specify the filename of a wallet by using the `--wallet` option.
 If the filename you specifiy does not end in `.wallet` then that
 suffix will be added to the name of the wallet file that is created or
-opened.  Any blockchain filename must match the wallet filename, but
-end in `.spvchain` rather than `.wallet`.
+opened.  If you want to use an existing blockchain file, then its name
+must match the wallet filename, but end in `.spvchain` rather than
+`.wallet`.
 
-Of course, you can also use the standard sbt `run` task rather than
-`start-script`, if you want.
+**Peer Discovery**
+
+DNS peer discovery does not always work well on the test net,
+wherefore the IP numbers of the test-net peers are hard-coded into the
+source.  They may get out-of-date.  If you would rather use DNS peer
+discovery, invoke this application with the `dns` command-line
+switch:
+
+    target/start --dns
+
+**Invocation Help**
+
+To display a summary of all command-line options and switches:
+
+    target/start --help
+
+**Future Feature**
+
+This application currently only works with the Bitcoin test network,
+but we have plans to add main-net compatibility.  You can share in our
+excited anticipation of this future development:
+
+    target/start --notest
+	
+It won't work, but at least you get a message telling you so.
 
 Usage
 -----
 
-Once you're at the command prompt, entering `help` will display the
-available commands.
+Once you're at the command prompt, the `help` command will display
+descriptions of all the available commands.  This is different than
+the command-line `help` switch, which applies only to starting this
+application, not using it.
 
-This program generates a logfile, named `bitcoinj.log`, that you can
+This application generates a logfile, named `bitcoinj.log`, that you can
 watch to see what's happening in the background.
 
-Peer Discovery
---------------
-
-DNS peer discovery does not always work well on the test net,
-wherefore the IP numbers of the test peers are hard-coded into the
-source.  They may get out-of-date.  If you want to switch to DNS peer
-discovery, simply comment and uncomment the appropriate lines in
-`Server.scala`.
 
 Getting the bitcoinj library
 ----------------------------
 
 For security reasons, the bitcoinj library is not available as a maven
-artifact; thus you must build it yourself.  This is not difficult.
+artifact; thus you must build it yourself.  This is easy.
 Simply
 [follow these instructions](https://code.google.com/p/bitcoinj/wiki/UsingMaven),
 beginning where it reads "To get bitcoinj you can use git and check out
@@ -68,16 +95,15 @@ which may be different from the one shown in the referenced instructions.
 Known Bugs
 ----------
 
-* The wallet file, block chain file, and log file are put into the
-  current working directory.
+* The wallet file, block chain file, and log file are read from and put
+  into your current working directory.  There is no way to specifiy a
+  different directory.
 
 * This application does not limit the size of the log file, which will
-  keep growing and must be moved or deleted manually.
-
-* If your EC Key doesn't have the private key necessary for signing a
-  payment then you get a timeout rather than an appropriate message.
-  (I'm learning to use Akka at the same time I'm learning to use
-  bitcoinj.)
+  keep growing and must be deleted or moved manually.
+  
+* If DNS discovery fails you get no message telling you so (except in
+  the log).
 
 Caveatis
 ========
@@ -85,7 +111,7 @@ Caveatis
 Obviously, it's foolish to use this or any other Bitcoin-wallet
 application without taking appropriate precautions to prevent coin
 loss.  I have not had any unrecoverable disasters using this
-application, but you are responsible for backing up your wallet file.
+application, but you are responsible for protecting your wallet.
 In plain terms: **use at your own risk.**
 
 I welcome feedback:

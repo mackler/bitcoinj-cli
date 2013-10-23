@@ -17,31 +17,47 @@ import scala.concurrent.duration._
 
 import java.util.Date
 
-object Shell extends OptParse {
+object Shell extends OptParse with OptParseImplicits {
   import Server._
   System.setProperty("jline.shutdownhook","true") // otherwise jline leaves terminal echo off
-  implicit val j2bi = scala.math.BigInt.javaBigInteger2bigInt _
 
-  val wallet = StrOpt()
+  val wallet = StrOpt(desc = "Specify a wallet filename")
+  val notest = BoolOpt(desc = "Connect to the main Bitcoin network, not the test net")
+  val dns = BoolOpt(desc = "Discover peers using DNS")
 
   val consoleReader = new ConsoleReader
   val historyFile = (new java.io.File(".history")).getAbsoluteFile
   val history: FileHistory = new FileHistory(historyFile)
   consoleReader.setHistory(history)
   consoleReader.addCompleter( new StringsCompleter (
-    "status","peers","wallet","pay","transaction","backup","quit","exit","help"
+    "status","peers","wallet","pay","transaction","backup","encrypt","decrypt","quit","exit","help"
   ))
 
   val prompt = "bitcoinj> "
-/*  var terminatorOption: Option[ActorRef]     = None
-  def terminator                             = terminatorOption.get */
+
+  import DiscoveryType._
+  import NetworkId._
 
   def main (args: Array[String]) {
     parse(args)
+
+    if(notest) println ("Connecting to the main Bitcoin network is not implemented yet.")
+    val networkId = TEST
+
+    def defaultDiscovery(net: NetworkId.Value): DiscoveryType.Value = net match {
+      case MAIN => DNS
+      case TEST => HARD
+    }
+
     val actorSystem = ActorSystem("BitcoinjCli")
-    val walletPrefix = wallet.getOrElse("default").replaceAll("\\.wallet$","")
+
+    val discoveryType = dns.value match {
+      case Some(true) => DNS
+      case _    => defaultDiscovery(networkId)
+    }
+
     val bitcoins = actorSystem.actorOf(
-      Props(classOf[Server], walletPrefix),
+      Props(classOf[Server], wallet.value, networkId, discoveryType),
       "bitcoinService"
     )
 
@@ -79,11 +95,13 @@ object Shell extends OptParse {
                                  asInstanceOf[Float]
           val peerCount = Await.result(bitcoins ? HowManyPeers, timeout.duration).
 	                              asInstanceOf[Int]
-          print(s"Connected to $peerCount peer${ peerCount match { case 1 => ""; case _ => "s"} }.  ")
+          print(s"Connected to $peerCount peer${ peerCount match { case 1 => ""; case _ => "s"} } on the Bitcoin ${
+	    networkId.toString.toLowerCase
+	  } network.  ")
 	  if (downloadProgress == 0) {
             println("Block chain download not started yet.")
           } else if (downloadProgress < 100.0)
-            printf("Block Chain is %.0f%% downloaded.\n", downloadProgress)
+            printf("Block Chain %.0f%% downloaded.\n", downloadProgress)
           else {
             val s = actorSystem.uptime
             println(String.format("Uptime: %d:%02d:%02d",
@@ -95,16 +113,20 @@ object Shell extends OptParse {
 
 	case "wallet" ⇒
 	  val contents = Await.result(bitcoins ? WhatContents, timeout.duration).
-	  asInstanceOf[WalletContents]
-          println(s"The wallet file ${walletPrefix}.wallet contains ${contents.addresses.size} address${
+                               asInstanceOf[WalletContents]
+          println(s"Wallet ${contents.filename}: encryption is ${
+	    contents.isEncrypted match {
+	      case true => "ON"
+              case false => "OFF"
+	    }
+	  }; contains ${contents.addresses.size} address${
 	    if (contents.addresses.size != 1) "es" else ""
 	  }:")
           contents.addresses.foreach {
-	    address ⇒ println(s"  $address")
+	    address ⇒ println("  " + address)
           }
 
-	  val transactions = Await.result(bitcoins ? WhatTransactions, timeout.duration).
-	                     asInstanceOf[List[TxData]]
+	  val transactions = contents.transactions
           if(transactions.size > 0) println(formatTxs(transactions))
 
 	  println("Wallet balance in BTC: " + {
@@ -123,18 +145,24 @@ object Shell extends OptParse {
 	  if (peers.size > 0) peers.foreach(println)
 	  else println("No peers connected")
 
-	case "pay" ⇒
-	  if (args.length != 3) println("usage: pay <address> <bitcoins>")
-	  else try {
-	    val amount = toNanoCoins(args(2))
-            Await.result(bitcoins ? Payment(args(1), amount), timeout.duration) match {
-              case t: Throwable ⇒ println(s"Payment failed; ${t.getMessage}")
-              case hash: String ⇒ println(s"$hash broadcast at ${new Date()}")
+	case "pay" ⇒ args.length match {
+	  case 3 => try {
+	    val microCents: java.math.BigInteger = toNanoCoins(args(2))
+	    def tryPayment(address: String, amount: java.math.BigInteger, password: Option[String]) {
+              Await.result(bitcoins ? Payment(args(1), amount, password), timeout.duration) match {
+		case Left(t: Exception) ⇒ println(s"Payment failed: ${t.getMessage}")
+		case Right(hash: String) ⇒ println(s"Transaction $hash sent at ${new Date()}")
+		case PasswordNeeded => tryPayment(address, amount, readPassword())
+	      }
             }
+	    tryPayment(args(1), microCents, None)
 	  } catch {
-	    case e: NumberFormatException ⇒ println("Invalid payment amount")
-	    case e: ArithmeticException ⇒ println("Amount fraction or range error")
+	    case e: NumberFormatException ⇒ println("Amount must be a number")
+	    case e: ArithmeticException ⇒ println("Amount too big or small")
 	  }
+
+	  case _ => println("usage: pay <address> <bitcoins>")
+	}
 
 	case "transaction" => args.length match {
 	  case 2 => Await.result(bitcoins ? TxInquiry(args(1)), timeout.duration) match {
@@ -154,6 +182,27 @@ object Shell extends OptParse {
           case _ => println("usage: backup <filename>")
 	}
 
+	case "encrypt" =>
+	  val proceed = args.length match {
+	    case 2 => Some(args(1))
+	    case 1 => readPassword(requireConfirmation = true, warning = Some("Losing your password means losing your wallet."))
+	  }
+	  proceed match {
+	    case None => println("Wallet encryption canceled")
+	    case Some(password) => Await.result(bitcoins ? Encrypt(password), timeout.duration) match {
+	      case Left(reason: String) => println(s"Wallet encryption failed: $reason")
+	      case Right(_)             => println("Wallet is now encrypted")
+	    }
+	  }
+
+	case "decrypt" => Await.result(bitcoins ? Decrypt(args.length match {
+	  case 1 => readPassword().get
+	  case 2 => args(1)
+        }), timeout.duration) match {
+	  case Left(reason: String) => println(s"Wallet decryption failed: $reason")
+	  case Right(_)             => println("Wallet is now unencrypted")
+	}
+
 	case "replay" ⇒ bitcoins ! Replay
 
 	case "exit" ⇒ exiting = true
@@ -167,6 +216,8 @@ object Shell extends OptParse {
              |  pay <address> <amount>   Send the indicated number of Bitcoins.
              |  transaction <id>         Display details of the given transaction.
              |  backup <filename>        Make a backup copy of the wallet.
+             |  encrypt [ password ]     Encrypt the wallet.
+             |  decrypt [ password ]     Decrypt the encrypted wallet.
              |  exit | quit              Exit this shell.
              |  help                     Display this help.""".stripMargin
 	)
@@ -187,6 +238,37 @@ object Shell extends OptParse {
         context.system.shutdown()
         print("exiting...")
         System.exit(0)
+    }
+  }
+
+  private def readPassword(requireConfirmation: Boolean = false, warning: Option[String] = None): Option[String] = {
+    val reader = new ConsoleReader
+    def warnedRead(echo: Boolean = false): Option[String] = {
+      def read(prompt: String) = echo match {
+	case false => reader.readLine(prompt, new Character('*'))
+	case true => reader.readLine(prompt)
+      }
+      val first = read("Enter password: ")
+      (requireConfirmation && echo == false) match {
+	case false => Some(first)
+	case true =>
+	  val second = read("Confirm password: ")
+	  (first == second) match {
+	    case false => None
+	    case true => Some(first)
+	  }
+      }
+    }
+    warning match {
+      case None => warnedRead()
+      case Some(warning) =>
+	println(s"WARNING: $warning")
+        reader.readLine("Proceed? [y]es, [no], [e]cho password while typing: ").
+               substring(0,1).toLowerCase match {
+	  case "y" => warnedRead()
+          case "e" => warnedRead(echo = true)
+	  case _ => None // cancel
+	}
     }
   }
 
@@ -221,3 +303,14 @@ object Shell extends OptParse {
   }
 
 }
+
+object DiscoveryType extends Enumeration {
+  val DNS = Value
+  val HARD = Value
+}
+
+object NetworkId extends Enumeration {
+  val MAIN = Value
+  val TEST = Value
+}
+

@@ -27,7 +27,9 @@ private object Discovery extends com.google.bitcoin.discovery.PeerDiscovery {
     (199,231,187,226),
     (199,19,108,71),
     (106,187,52,100),
-    (144,76,46,66)
+    (144,76,46,66),
+    // nslookup lookup testnet-seed.bluematt.me
+    (152,2,31,233)
   )
 
   def peerAddresses: Array[PeerAddress] = addresses.map ( a =>
