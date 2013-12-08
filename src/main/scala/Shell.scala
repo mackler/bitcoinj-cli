@@ -141,9 +141,37 @@ object Shell extends OptParse with OptParseImplicits {
 	  }
 
 	case "peers" ⇒
-          val peers = Await.result(bitcoins ? WhoArePeers, timeout.duration).asInstanceOf[List[String]]
-	  if (peers.size > 0) peers.foreach(println)
-	  else println("No peers connected")
+          val peers = PeerData(
+	    address = "IP Address : Port",
+	    height = "Chain Height",
+	    ping = "Last Ping",
+	    chainNode = "Chain Copy",
+	    protocol = "Protocol",
+	    version = "Version"
+          ) :: Await.result(bitcoins ? WhoArePeers, timeout.duration).asInstanceOf[List[PeerData]]
+	  if (peers.size > 1) {
+	    val w: Array[Int] = Array(
+	      peers.map(_.address.length).max,
+	      peers.map(_.version.length).max,
+	      peers.map(_.protocol.length).max,
+	      peers.map(_.chainNode.length).max,
+	      peers.map(_.ping.length).max,
+	      peers.map(_.height.length).max
+	    )
+	    peers.foreach{p =>
+              printf(s"%${w(0)}s  %-${w(1)}s  %-${w(2)}s  %-${w(3)}s  %${w(4)}s  %${w(5)}s\n",
+		   p.address,p.version,p.protocol,
+		   p.chainNode,p.ping,p.height
+	      )
+	    }
+	  } else println("No peers connected")
+
+	case "chain" =>
+	  val height = Await.result(bitcoins ? GetHeight, timeout.duration).asInstanceOf[Int]
+	  println(height match {
+	    case -1 => "No peers connected"
+	    case h => s"Chain height: $h"
+	  })
 
 	case "pay" ⇒ args.length match {
 	  case 3 => try {
@@ -213,6 +241,7 @@ object Shell extends OptParse with OptParseImplicits {
              |  status                   Display information about the running system.
              |  wallet                   Display information about the wallet.
              |  peers                    List all currently connected peers.
+             |  chain                    Display the currently reported chain height.
              |  pay <address> <amount>   Send the indicated number of Bitcoins.
              |  transaction <id>         Display details of the given transaction.
              |  backup <filename>        Make a backup copy of the wallet.

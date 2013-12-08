@@ -30,7 +30,11 @@ application:
     target/start
 
 If a wallet file does not already exist then it will create a new one
-with a single key.
+with a single key.  Such a default wallet will be named after the
+Bitcoin network that you're using, _e.g._, if you are using the test
+network, then the wallet file will be named `test.wallet`.  The name
+of the block chain file will correspond to the name of the wallet
+file.
 
 You can specify the filename of a wallet by using the `--wallet` option.
 If the filename you specifiy does not end in `.wallet` then that

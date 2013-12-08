@@ -132,8 +132,22 @@ class Server(
     })
 
     case WhoArePeers ⇒ sender ! (peerGroup match {
-	case Some(pg) => pg.getConnectedPeers.map(_.getAddress.toString).toList
-	case None     => List[String]()
+	case Some(pg) => pg.getConnectedPeers.map { p => PeerData(
+	    address = p.getAddress.toString,
+	    height = p.getBestHeight.toString,
+	    ping = p.getLastPingTime.toString,
+	    chainNode = p.getPeerVersionMessage.hasBlockChain match {
+	      case true => "YES"; case false => "NO"
+            },
+	    protocol = p.getPeerVersionMessage.clientVersion.toString,
+	    version = p.getPeerVersionMessage.subVer
+	)}.toList
+	case None => List[PeerData]()
+      })
+
+    case GetHeight ⇒ sender ! (peerGroup match {
+	case Some(pg) => pg.getMostCommonChainHeight
+	case None     => -1
       })
 
     case HowManyPeers ⇒ sender ! (peerGroup match {
@@ -194,7 +208,8 @@ object Server {
       case None =>
     }
     wallet.completeTx(request) match {
-      case false => Left(new Exception("insufficient balance"))
+      case false => // insufficient balance: may change to thrown exception
+	Left(new Exception("insufficient balance"))
       case true =>
         wallet.commitTx(request.tx)
         val broadcastTransaction = peerGroup.broadcastTransaction(request.tx)
@@ -254,7 +269,16 @@ object Server {
 //  case object WhatTransactions
   type Error = Option[Exception]
   case object WhoArePeers
+  case object GetHeight
   case object HowManyPeers
   case object Replay
   case object AreStarted
+  case class PeerData(
+    address:   String,
+    height:    String,
+    ping:      String,
+    chainNode: String,
+    protocol:  String,
+    version:   String
+  )
 }
