@@ -3,7 +3,7 @@ package org.mackler.bitcoincli
 import com.google.bitcoin.core.PeerAddress
 import java.net.{InetAddress,InetSocketAddress}
 
-private object Discovery extends com.google.bitcoin.discovery.PeerDiscovery {
+private object Discovery extends com.google.bitcoin.net.discovery.PeerDiscovery {
 
   private val addresses: Array[Tuple4[Int,Int,Int,Int]] = Array(
     // Got these by nslookup testnet-seed.bitcoin.petertodd.org

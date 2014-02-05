@@ -1,12 +1,11 @@
 package org.mackler.bitcoincli
 
 import com.google.bitcoin.crypto.{KeyCrypter,KeyCrypterScrypt}
-import com.google.bitcoin.core.{AbstractWalletEventListener,Address,BlockChain,DownloadListener,
-				ECKey,NetworkParameters,PeerGroup,Sha256Hash,Transaction,Wallet}
+import com.google.bitcoin.core._
 import com.google.bitcoin.core.Utils._
 import com.google.bitcoin.core.Wallet.SendRequest
 import com.google.bitcoin.core.Transaction.MIN_NONDUST_OUTPUT
-import com.google.bitcoin.discovery.DnsDiscovery
+import com.google.bitcoin.net.discovery.DnsDiscovery
 import com.google.bitcoin.store.{SPVBlockStore,UnreadableWalletException}
 
 import com.google.common.util.concurrent.Futures
@@ -207,17 +206,18 @@ object Server {
       case Some(password) => request.aesKey = wallet.getKeyCrypter.deriveKey(password)
       case None =>
     }
-    wallet.completeTx(request) match {
-      case false => // insufficient balance: may change to thrown exception
-	Left(new Exception("insufficient balance"))
-      case true =>
-        wallet.commitTx(request.tx)
-        val broadcastTransaction = peerGroup.broadcastTransaction(request.tx)
-        Futures.addCallback(broadcastTransaction, new FutureCallback[Transaction] {
-	  def onSuccess(result: Transaction) { println(s"Payment propagated at ${new Date()}\n$result") }
-	  def onFailure(t: Throwable) { println(s"Payment failed ${t.getMessage}") }
-	})
-        Right(request.tx.getHashAsString)
+    try {
+      wallet.completeTx(request)
+      wallet.commitTx(request.tx)
+      val broadcastTransaction = peerGroup.broadcastTransaction(request.tx)
+      Futures.addCallback(broadcastTransaction, new FutureCallback[Transaction] {
+	def onSuccess(result: Transaction) { println(s"Payment propagated at ${new Date()}\n$result") }
+	def onFailure(t: Throwable) { println(s"Payment failed ${t.getMessage}") }
+      })
+      Right(request.tx.getHashAsString)
+    } catch {
+      case e: InsufficientMoneyException => Left(e)
+      case e: IllegalArgumentException   => Left(e)
     }
   }
 
