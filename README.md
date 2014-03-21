@@ -53,21 +53,19 @@ switch:
 
     target/start --dns
 
+**Choosing the Network**
+
+By default, this application connects to the Bitcoin test network.  To
+connect to the main network you must invoke with the `--notest`
+switch:
+
+    target/start --notest
+	
 **Invocation Help**
 
 To display a summary of all command-line options and switches:
 
     target/start --help
-
-**Future Feature**
-
-This application currently only works with the Bitcoin test network,
-but we have plans to add main-net compatibility.  You can share in our
-excited anticipation of this future development:
-
-    target/start --notest
-	
-It won't work, but at least you get a message telling you so.
 
 Usage
 -----

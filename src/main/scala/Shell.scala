@@ -41,8 +41,10 @@ object Shell extends OptParse with OptParseImplicits {
   def main (args: Array[String]) {
     parse(args)
 
-    if(notest) println ("Connecting to the main Bitcoin network is not implemented yet.")
-    val networkId = TEST
+    val networkId = notest.value match {
+      case Some(true) => MAIN
+      case _ => TEST
+    }
 
     def defaultDiscovery(net: NetworkId.Value): DiscoveryType.Value = net match {
       case MAIN => DNS
