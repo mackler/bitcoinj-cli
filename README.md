@@ -78,22 +78,6 @@ application, not using it.
 This application generates a logfile, named `bitcoinj.log`, that you can
 watch to see what's happening in the background.
 
-
-Getting the bitcoinj library
-----------------------------
-
-For security reasons, the bitcoinj library is not available as a maven
-artifact; thus you must build it yourself.  This is easy.
-Simply
-[follow these instructions](https://code.google.com/p/bitcoinj/wiki/UsingMaven),
-beginning where it reads "To get bitcoinj you can use git and check out
-your own copy."
-
-As of this writing, this application was built against bitcoinj repository
-commit
-[32a823804c4f](https://code.google.com/p/bitcoinj/source/detail?r=32a823804c4ff89f89aeff73da42498be84672ee),
-which may be different from the one shown in the referenced instructions.
-
 Known Bugs
 ----------
 
