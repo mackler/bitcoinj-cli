@@ -43,11 +43,13 @@ class Server(
       log.debug(s"Bitcoin wallet has ${wallet.getKeychainSize} keys in its keychain")
       log.debug("Starting download of block chain")
       wallet addEventListener walletEventListener
+      peerGroup setMaxConnections 4
     }
   })
 
   (discoveryType match {
-    case HARD => walletAppKit.setPeerNodes (Discovery.peerAddresses: _*)
+    case HARD =>
+      walletAppKit.setPeerNodes (Discovery.peerAddresses: _*)
     case DNS => walletAppKit
   }).
     setUserAgent(BuildInfo.name, BuildInfo.version).

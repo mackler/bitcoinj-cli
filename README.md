@@ -81,6 +81,11 @@ watch to see what's happening in the background.
 Known Bugs
 ----------
 
+* If you start this program with a mis-matching network and wallet
+  there is no warning, and looking at the wallet will display the
+  wrong address.  This is a serious problem and needs to be fixed
+  ASAP.
+
 * The wallet file, block chain file, and log file are read from and put
   into your current working directory.  There is no way to specifiy a
   different directory.
